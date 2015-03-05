@@ -1,10 +1,297 @@
 Changelog for Isso
 ==================
 
-0.7 (unreleased)
+0.10 (unreleased)
+-----------------
+
+- add new configuration section for hash handling.
+
+    [hash]
+    salt = Eech7co8Ohloopo9Ol6baimi
+    algorithm = pbkdf2
+
+  You can customize the salt, choose different hash functions and tweak the
+  parameters for PBKDF2.
+
+- Python 3.4+ and Python 2.7.9+ validate TLS connections against the system's
+  CA. Previously no validation was in place, see PEP-446__ for details.
+
+- add `fenced_code` and `no_intra_emphasis` to default configuration.
+
+  Fenced code allows to write code without indentation using `~~~` delimiters
+  (optionally with language identifier).
+
+  Intra emphasis would compile `foo_bar_baz` to foo<em>bar</em>baz. This
+  behavior is very confusing for users not knowing the Markdown spec in detail.
+
+- new Bulgarian translation by sahwar, new Swedish translation by <Gustav
+  Näslund, #143
+
+.. __: https://www.python.org/dev/peps/pep-0466/
+
+
+0.9.9 (2015-03-04)
+------------------
+
+- several Python 3.x related bugfixes
+
+- don't lose comment form if the server rejected the POST request, #144
+
+- add localStorage fallback if QUOTA_EXCEEDED_ERR is thrown (e.g. Safari
+  private browsing)
+
+- add '--empty-id' flag to Disqus import, because Disqus' export sucks
+
+- (re)gain compatibility with Werkzeug 0.8 and really old html5lib versions
+  available in Debian Squeeze, #170 & #168
+
+- add User-Agent when Isso requests the URL, an alternate way to #151 (add
+  'X-Isso' when requesting).
+
+0.9.8 (2014-10-08)
+------------------
+
+- add compatibility with configparser==3.5.0b1, #128
+
+
+0.9.7 (2014-09-25)
+------------------
+
+- fix SMTP authentication using CRAM-MD5 (incorrect usage of
+  `smtplib`), #126
+
+
+0.9.6 (2014-08-18)
+------------------
+
+- remember name, email and website in localStorage, #119
+
+- add option to hide voting feature, #115
+
+    data-isso-vote="true|false"
+
+- remove email field from JSON responses
+
+  This is a quite serious issue. For the identicon, an expensive hash is used
+  to avoid the leakage of personal information like a real email address. A
+  `git blame` reveals, the email has been unintenionally exposed since the very
+  first release of Isso :-/
+
+  The testsuite now contains a dedicated test to prevent this error in the
+  future.
+
+
+0.9.5 (2014-08-10)
+------------------
+
+- prevent no-break space (&nbsp;) insertion to enable manual line breaks using
+  two trailing spaces (as per Markdown convention), #112
+
+- limit request size to 256 kb, #107
+
+  Previously unlimited or limited by proxy server). 256 kb is a rough
+  approximation of the next database schema with comments limited to 65535
+  characters and additional fields.
+
+- add support for logging to file, #103
+
+    [general]
+    log-file =
+
+- show timestamp when hovering <time>, #104
+
+- fix a regression when editing comments with multiple paragraphs introduced
+  in 0.9.3 which would HTML escape manually inserted linebreaks.
+
+
+0.9.4 (2014-07-09)
+------------------
+
+- fixed a regression when using Isso and Gevent
+
+
+0.9.3 (2014-07-09)
+------------------
+
+- remove scrollIntoView while expanding further comments if a fragment is used
+  (e.g. #isso-thread brought you back to the top, unexpectedly)
+
+- implement a custom Markdown renderer to support multi-line code listings. The
+  extension "fenced_code" is now enabled by default and generates HTML
+  compatible with Highlight.js__.
+
+- escape HTML entities when editing a comment with raw HTML
+
+- fix CSS for input
+
+- remove isso.css from binary distribution to avoid confusion (it's still there
+  from the very first release, but modifications do not work)
+
+.. __: http://highlightjs.org/
+
+
+0.9 (2014-05-29)
 ----------------
 
-- Nothing changed yet.
+- comment pagination by Srijan Choudhary, #15
+
+  Isso can now limit the amount of comments shown by default and add link to
+  show more. By default, all top-level comments are shown but only 5 nested
+  comments (per reply). You can override the settings:
+
+    isso-data-max-comments-top="N"
+    isso-data-max-comments-nested="N"
+
+  Where N is a number from 0 to infinity ("inf"). If you limit the amount of
+  shown top level comments, the overall comment count may be incorrect and a
+  known issue.
+
+  You can also configure the amount of comments shown per click (5 by default):
+
+    isso-data-reveal-on-click="N"
+
+  This feature also required a change in the comment structure. Previously, all
+  comments are stored tree-like but shown linearly. To ease the implementation
+  of pagination, the comment tree is now limited to a maximum depth of one.
+  Jeff Atwood explains, why `discussions are flat by design`__.
+
+  .. __: http://blog.codinghorror.com/web-discussions-flat-by-design/
+
+  When you upgrade, Isso will automatically normalize the tree and some
+  information gets lost. All new replies to a comment are now automatically a
+  direct child of the top-level comment.
+
+- style improvements by William Dorffer, #39, #84 #90 and #91
+
+  Isso now longer uses a fat SCSS library, but plain CSS instead. The design is
+  now responsive and no longer sets global CSS rules.
+
+- experimental WordPress import, #75
+
+  Isso should be able to import WXR 1.0-1.2 exports. The import code is based
+  on two WXR dumps I found (and created) and may not work for you. Please
+  report any failure.
+
+- avatar changes, #49
+
+  You can now configure the client to not show avatars:
+
+    data-isso-avatar="false"
+
+  Also there is no longer an avatar shown next to the comment box. This is due
+  to the new CSS and removes two runtime dependencies.
+
+- you may now set a full From header, #87
+
+    [smtp]
+    from = Foo Bar <spam@local>
+
+- SMTP (all caps) is now recognized for notifications, #95
+
+- Isso now ships a small demo site at /demo, #44
+
+- a few bugfixes: Disqus import now anonymizes IP addresses, uWSGI spooling for
+  Python 3, HTTP-Referer fallback for HTTP-Origin
+
+- remove Django's PBKDF2 implementation in favour of the PBKDF2 function
+  available in werkzeug 0.9 or higher. If you're still using werkzeug 0.8, Isso
+  imports passlib__ as fallback (if available).
+
+
+This release also features a new templating engine Jade__ which replaces
+Markup.js__. Jade can compile directly to JavaScript with a tiny runtime module
+on the client. Along with the removal of sha1.js and pbkdf2.js and a few build
+optimizations, the JS client now weighs only 40kb (12kb gzipped) – 52kb resp.
+17kb before.
+
+.. __: https://pypi.python.org/pypi/passlib
+.. __: http://jade-lang.com/
+.. __: https://github.com/adammark/Markup.js
+
+
+0.8 (2014-03-28)
+----------------
+
+- replace ``<textarea>`` with ``<div contentedtiable="true">`` to remove the
+  sluggish auto-resize on input feature. If you use a custom CSS, replace
+  ``textarea`` with ``.textarea`` and also set ``white-space: pre``.
+
+- remove superscript extension from Markdown defaults as it may lead to
+  unexpected behavior for certain smileys such as "^^". To enable the extension,
+  add
+
+    [markup]
+    options = superscript
+    allowed-elements = sup
+
+  to your configuration.
+
+- comment count requests are now bundled into a single POST request, but the old
+  API is still there (deprecated though).
+
+- store *session-key* in database (once generated on database creation). That
+  means links to activate, edit or delete comments are now always valid even
+  when you restart Isso.
+
+  Currently statically set session keys in ``[general]`` are automatically
+  migrated into the database on startup and you will get a notice that you can
+  remove this option.
+
+- fix undefined timestamp when client time differs for more than 1 second.
+  The human-readable "time ago" deltas have been refined to match `Moment.js`_
+  behavior.
+
+- avatar colors and background can now be customized:
+
+  * ``data-isso-avatar-bg="#f0f0f0"`` sets the background color
+  * ``data-isso-avatar-fg="#9abf88 #5698c4 #e279a3 #9163b6 ..."`` sets possible
+    avatar colors (up to 8 colors are possible).
+
+- new [markup] section to customize Misaka's Markdown generation (strikethrough,
+  superscript and autolink enabled by default). Furthermore, you can now allow
+  certain HTML elemenets and attributes in the generated output, e.g. to enable
+  images, set
+
+      [markup]
+      allowed-elements = img
+      allowed-attributes = src
+
+  Check docs/configuration/server.rst for more details.
+
+- replace requirejs-domready with a (self-made) HTML5 idiom, #51
+
+.. _Moment.js: http://momentjs.com/docs/#/displaying/fromnow/
+
+
+0.7 (2014-01-29)
+----------------
+
+- fix malicious HTML injection (due to wrong API usage). All unknown/unsafe
+  HTML tags are now removed from the output (`html5lib` 0.99(9) or later) or
+  properly escaped (older `html5lib` versions).
+
+  See 36d702c and 3a1f92b for more details.
+
+- remove kriskowal/q JS library (promises implementation) in favour of a
+  self-made 50 LoC implementation to ease packaging (for Debian), #51
+
+- add documentation to display a comment counter, #56 and #57
+
+- SMTP notifications now support STARTTLS and use this transport security
+  by default, #48 and #58. This also changes the configuration option from
+  `ssl = [yes|no]` to `security = [none|starttls|ssl]`.
+
+- translation can now be made (and updated) with Transifex_. If you want to
+  take ownership for a language, contact me on IRC.
+
+- fix french pluralform
+
+- the (by default random) session-key is now shown on application startup
+  to make different keys per startup more visible
+
+- use `threading.lock` by default for systems without semaphore support
+
+.. _Transifex: https://www.transifex.com/projects/p/isso/
 
 
 0.6 (2013-12-16)

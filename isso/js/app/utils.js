@@ -1,39 +1,101 @@
-define(["app/markup"], function(Mark) {
+define(["app/i18n"], function(i18n) {
+    "use strict";
 
     // return `cookie` string if set
     var cookie = function(cookie) {
         return (document.cookie.match('(^|; )' + cookie + '=([^;]*)') || 0)[2];
     };
 
-    var ago = function(date) {
+    var pad = function(n, width, z) {
+        z = z || '0';
+        n = n + '';
+        return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+    };
 
-        var diff = (((new Date()).getTime() - date.getTime()) / 1000),
-            day_diff = Math.floor(diff / 86400);
+    var ago = function(localTime, date) {
 
-        if (isNaN(day_diff) || day_diff < 0) {
-            return;
+        var secs = ((localTime.getTime() - date.getTime()) / 1000);
+
+        if (isNaN(secs) || secs < 0 ) {
+            secs = 0;
         }
 
-        var i18n = function(msgid, n) {
-            if (! n) {
-                return Mark.up("{{ i18n-" + msgid + " }}");
-            } else {
-                return Mark.up("{{ i18n-" + msgid + " | pluralize : `n` }}", {n: n});
-            }
-        };
+        var mins = Math.ceil(secs / 60), hours = Math.ceil(mins / 60),
+            days = Math.ceil(hours / 24);
 
-        return day_diff === 0 && (
-                diff <    60 && i18n("date-now")  ||
-                diff <  3600 && i18n("date-minute", Math.floor(diff / 60)) ||
-                diff < 86400 && i18n("date-hour", Math.floor(diff / 3600))) ||
-            day_diff <   7 && i18n("date-day", day_diff) ||
-            day_diff <  31 && i18n("date-week", Math.ceil(day_diff / 7)) ||
-            day_diff < 365 && i18n("date-month", Math.ceil(day_diff / 30)) ||
-            i18n("date-year", Math.ceil(day_diff / 365.25));
+        return secs  <=  45 && i18n.translate("date-now")  ||
+               secs  <=  90 && i18n.pluralize("date-minute", 1) ||
+               mins  <=  45 && i18n.pluralize("date-minute", mins) ||
+               mins  <=  90 && i18n.pluralize("date-hour", 1) ||
+               hours <=  22 && i18n.pluralize("date-hour", hours) ||
+               hours <=  36 && i18n.pluralize("date-day", 1) ||
+               days  <=   5 && i18n.pluralize("date-day", days) ||
+               days  <=   8 && i18n.pluralize("date-week", 1) ||
+               days  <=  21 && i18n.pluralize("date-week", Math.ceil(days / 7)) ||
+               days  <=  45 && i18n.pluralize("date-month", 1) ||
+               days  <= 345 && i18n.pluralize("date-month", Math.ceil(days / 30)) ||
+               days  <= 547 && i18n.pluralize("date-year", 1) ||
+                               i18n.pluralize("date-year", Math.ceil(days / 365.25));
     };
+
+    var HTMLEntity = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': '&quot;',
+        "'": '&#39;',
+        "/": '&#x2F;'
+    };
+
+    var escape = function(html) {
+        return String(html).replace(/[&<>"'\/]/g, function (s) {
+            return HTMLEntity[s];
+        });
+    };
+
+    var text = function(html) {
+        var _ = document.createElement("div");
+        _.innerHTML = html.replace(/<div><br><\/div>/gi, '<br>')
+                          .replace(/<div>/gi,'<br>')
+                          .replace(/<br>/gi, '\n')
+                          .replace(/&nbsp;/gi, ' ');
+        return _.textContent.trim();
+    };
+
+    var detext = function(text) {
+        text = escape(text);
+        return text.replace(/\n\n/gi, '<br><div><br></div>')
+                   .replace(/\n/gi, '<br>');
+    };
+
+    // Safari private browsing mode supports localStorage, but throws QUOTA_EXCEEDED_ERR
+    var localStorageImpl;
+    try {
+        localStorage.setItem("x", "y");
+        localStorage.removeItem("x");
+        localStorageImpl = localStorage;
+    } catch (ex) {
+        localStorageImpl = (function(storage) {
+            return {
+                setItem: function(key, val) {
+                    storage[key] = val;
+                },
+                getItem: function(key) {
+                    return typeof(storage[key]) !== 'undefined' ? storage[key] : null;
+                },
+                removeItem: function(key) {
+                    delete storage[key];
+                }
+            };
+        })({});
+    }
 
     return {
         cookie: cookie,
-        ago: ago
+        pad: pad,
+        ago: ago,
+        text: text,
+        detext: detext,
+        localStorageImpl: localStorageImpl
     };
 });

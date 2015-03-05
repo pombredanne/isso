@@ -1,5 +1,5 @@
 define({
-    "postbox-text": "Комментировать здесь  (миниум 3 символа)",
+    "postbox-text": "Комментировать здесь  (минимум 3 символа)",
     "postbox-author": "Имя (необязательно)",
     "postbox-email": "Email (необязательно)",
     "postbox-submit": "Отправить",
@@ -14,7 +14,7 @@ define({
     "comment-cancel": "Отменить",
     "comment-deleted": "Удалить комментарий",
     "comment-queued": "Комментарий должен быть разблокирован",
-    "comment-anonymous": "Аномимый",
+    "comment-anonymous": "Анонимный",
     "date-now": "Сейчас",
     "date-minute": "Минут назад\n{{ n }} минут",
     "date-hour": "Час назад\n{{ n }} часов",

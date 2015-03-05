@@ -2,25 +2,23 @@ Quickstart
 ==========
 
 Assuming you have successfully :doc:`installed <install>` Isso, here's
-a quickstart quide that covers common setups. Sections covered:
+a quickstart quide that covers the most common setup. Sections covered:
 
 .. contents::
     :local:
     :depth: 1
 
-
 Configuration
 -------------
 
-You must provide a custom configuration. Most default parameters are useful for
-development, not persistence. The two most important options are `dbpath` to
-set the location of your database and your website's name `host` where you want
-to comment on:
+You must provide a custom configuration to set `dbpath` (your database
+location) and `host` (a list of websites for CORS_). All other options have
+sane defaults.
 
 .. code-block:: ini
 
     [general]
-    ; database location, check permissions, created if not exists
+    ; database location, check permissions, automatically created if not exists
     dbpath = /var/lib/isso/comments.db
     ; your website or blog (not the location of Isso!)
     host = http://example.tld/
@@ -36,9 +34,9 @@ Note, that multiple, *different* websites are **not** supported in a single
 configuration. To serve comments for diffent websites, refer to
 :ref:`Multiple Sites <configure-multiple-sites>`.
 
-You moderate Isso through signed URLs sent by email or logged. By default,
-comments are accepted and immediately shown to other users. To enable
-moderation queue, add:
+The moderation is done with signed URLs sent by email or logged to stdout.
+By default, comments are accepted and immediately shown to other users. To
+enable moderation queue, add:
 
 .. code-block:: ini
 
@@ -56,26 +54,31 @@ URLs for activation and deletion:
     [smtp]
     ; SMTP settings
 
-For more details, see :doc:`server <configuration/server>` and
-:doc:`client <configuration/client>` configuration.
+For more options, see :doc:`server <configuration/server>` and :doc:`client
+<configuration/client>` configuration.
 
 Migration
 ---------
 
-You can migrate your existing comments from Disqus_. Log into Disqus, go to
-your website, click on *Discussions* and select the *Export* tab. You'll
-receive an email with your comments. Unfortunately, Disqus does not export
-up- and downvotes.
+You can import comments from Disqus_ or WordPress_.
 
-To import existing comments, run Isso with your new configuration file:
+To export your comments from Disqus, log into Disqus, go to your website, click
+on *Discussions* and select the *Export* tab. You'll receive an email with your
+comments. Unfortunately, Disqus does not export up- and downvotes.
+
+To export comments from your previous WordPress installation, go to *Tools*,
+export your data. It has been reported that WordPress may generate broken XML.
+Try to repair the file using ``xmllint`` before you continue with the import.
+
+Now import the XML dump:
 
 .. code-block:: sh
 
-    ~> isso -c /path/to/isso.cfg import user-2013-09-02T11_39_22.971478-all.xml
+    ~> isso -c /path/to/isso.cfg import disqus-or-wordpress.xml
     [100%]  53 threads, 192 comments
 
-.. _Disqus: <https://disqus.com/>
-
+.. _Disqus: https://disqus.com/
+.. _WordPress: https://wordpress.org/
 
 Running Isso
 ------------
@@ -89,8 +92,7 @@ To run Isso, simply execute:
 
 Next, we configure Nginx_ to proxy Isso. Do not run Isso on a public interface!
 A popular but often error-prone (because of CORS_) setup to host Isso uses a
-dedicated domain such as ``comments.example.tld``; see
-:doc:`configuration/setup` for alternate ways.
+dedicated domain such as ``comments.example.tld``.
 
 Assuming both, your website and Isso are on the same server, the nginx
 configuration looks like this:
@@ -111,6 +113,7 @@ configuration looks like this:
             proxy_pass http://localhost:8080;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-Proto $scheme;
         }
     }
 
@@ -121,8 +124,8 @@ Now, you embed Isso to your website:
 
 .. code-block:: html
 
-    <script data-isso="http://comments.example.tld/"
-            src="http://comments.example.tld/js/embed.min.js"></script>
+    <script data-isso="//comments.example.tld/"
+            src="//comments.example.tld/js/embed.min.js"></script>
 
     <section id="isso-thread"></section>
 
@@ -132,102 +135,17 @@ Note, that `data-isso` is optional, but when a website includes a script using
 That's it. When you open your website, you should see a commenting form. Leave
 a comment to see if the setup works. If not, see :doc:`troubleshooting`.
 
+Going Further
+-------------
+
+There are several server and client configuration options uncovered in this
+quickstart, check out :doc:`configuration/server` and
+:doc:`configuration/client` for more information. For further website
+integration, see :doc:`extras/advanced-integration`.
+
+To launch Isso automatically, check the :ref:`init-scripts` section from the
+installation guide. A different approach to deploy a web application is
+written here: :doc:`Deployment of Isso <extras/deployment>`.
+
 .. _Nginx: http://nginx.org/
 .. _CORS: https://developer.mozilla.org/en/docs/HTTP/Access_control_CORS
-
-
-Deployment
-----------
-
-Isso ships with a built-in web server, which is useful for the initial setup
-and may be used in production for low-traffic sites (up to 20 requests per
-second). It is recommended to use a "real" WSGI server to run Isso, e.g:
-
-* gevent_, coroutine-based network library
-* uWSGI_, full-featured uWSGI server
-* gunicorn_, Python WSGI HTTP Server for UNIX
-
-.. _gevent: http://www.gevent.org/
-.. _uWSGI: http://uwsgi-docs.readthedocs.org/en/latest/
-.. _gunicorn: http://gunicorn.org/
-
-gevent
-^^^^^^
-
-Probably the easiest deployment method. Install with PIP (requires libevent):
-
-.. code-block:: sh
-
-    $ pip install gevent
-
-Then, just use the ``isso`` executable as usual. Gevent monkey-patches Python's
-standard library to work with greenlets.
-
-To execute Isso, just use the commandline interface:
-
-.. code-block:: sh
-
-    $ isso -c my.cfg run
-
-Unfortunately, gevent 0.13.2 does not support UNIX domain sockets (see `#295
-<https://github.com/surfly/gevent/issues/295>`_ and `#299
-<https://github.com/surfly/gevent/issues/299>`_ for details).
-
-uWSGI
-^^^^^
-
-The author's favourite WSGI server. Due the complexity of uWSGI, there is a
-:doc:`separate document <extras/uwsgi>` on how to setup uWSGI for use
-with Isso.
-
-gunicorn
-^^^^^^^^
-
-Install gunicorn_ via PIP:
-
-.. code-block:: sh
-
-    $ pip install gunicorn
-
-To execute Isso, use a command similar to:
-
-.. code-block:: sh
-
-    $ export ISSO_SETTINGS="/path/to/isso.cfg"
-    $ gunicorn -b localhost:8080 -w 4 --preload isso.run
-
-mod_wsgi
-^^^^^^^^
-
-I have no experience at all with `mod_wsgi`, most things are taken from
-`Flask: Configuring Apache <http://flask.pocoo.org/docs/deploying/mod_wsgi/#configuring-apache>`_:
-
-.. code-block:: apache
-
-    <VirtualHost *>
-        ServerName example.org
-
-        WSGIDaemonProcess isso user=... group=... threads=5
-        WSGIScriptAlias / /var/www/isso.wsgi
-    </VirtualHost>
-
-Now, you need to create a new `isso.wsgi` file:
-
-.. code-block:: python
-
-    import os
-
-    from isso import make_app
-    from isso.core import Config
-
-    application = make_app(Config.load("/path/to/isso.cfg"))
-
-Unless you know how to preload the application, add a static session key to
-your `isso.cfg`:
-
-.. code-block:: ini
-
-    [general]
-    ; cat /dev/urandom | strings | grep -o '[[:alnum:]]' | head -n 30 | tr -d '\n'
-    session-key = superrandomkey1
-

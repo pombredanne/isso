@@ -1,52 +1,27 @@
 /* Isso – Ich schrei sonst!
  */
-define(["app/text/html", "app/dom", "app/utils", "app/config", "app/api", "app/markup", "app/i18n", "app/lib"],
-    function(templates, $, utils, config, api, Mark, i18n, lib) {
+define(["app/dom", "app/utils", "app/config", "app/api", "app/jade", "app/i18n", "app/lib", "app/globals"],
+    function($, utils, config, api, jade, i18n, lib, globals) {
 
     "use strict";
 
-    var msgs = i18n[i18n.lang];
-
     var Postbox = function(parent) {
 
-        var el = $.htmlify(Mark.up(templates["postbox"]));
-
-        // add a default identicon to not waste CPU cycles
-        $(".avatar > svg", el).replace(lib.identicons.blank(4, 48));
-
-        // on text area focus, generate identicon from IP address
-        $(".textarea-wrapper > textarea", el).on("focus", function() {
-            if ($(".avatar svg", el).getAttribute("className") === "blank") {
-                $(".avatar svg", el).replace(
-                    lib.identicons.generate(lib.pbkdf2(api.remote_addr(), api.salt, 1000, 6), 4, 48));
-            }
-        });
-
-        // update identicon on email input. Listens on keyup, after 200ms the
-        // new identicon is generated.
-        var active;
-        $(".input-wrapper > [type=email]", el).on("keyup", function() {
-            if (active) {
-                clearTimeout(active);
-            }
-            active = setTimeout(function() {
-                lib.pbkdf2($(".input-wrapper > [type=email]", el).value || api.remote_addr(), api.salt, 1000, 6)
-                .then(function(rv) {
-                    $(".avatar svg", el).replace(lib.identicons.generate(rv, 4, 48));
-                });
-            }, 200);
-        }, false);
-
-        $(".input-wrapper > [type=email]", el).on("keydown", function() {
-            clearTimeout(active);
-        }, false);
+        var localStorage = utils.localStorageImpl,
+            el = $.htmlify(jade.render("postbox", {
+            "author":  JSON.parse(localStorage.getItem("author")),
+            "email":   JSON.parse(localStorage.getItem("email")),
+            "website": JSON.parse(localStorage.getItem("website"))
+        }));
 
         // callback on success (e.g. to toggle the reply button)
         el.onsuccess = function() {};
 
         el.validate = function() {
-            if ($("textarea", this).value.length < 3) {
-                $("textarea", this).focus();
+            if (utils.text($(".textarea", this).innerHTML).length < 3 ||
+                $(".textarea", this).classList.contains("placeholder"))
+            {
+                $(".textarea", this).focus();
                 return false;
             }
             return true;
@@ -59,66 +34,98 @@ define(["app/text/html", "app/dom", "app/utils", "app/config", "app/api", "app/m
                 return;
             }
 
+            var author = $("[name=author]", el).value || null,
+                email = $("[name=email]", el).value || null,
+                website = $("[name=website]", el).value || null;
+
+            localStorage.setItem("author", JSON.stringify(author));
+            localStorage.setItem("email", JSON.stringify(email));
+            localStorage.setItem("website", JSON.stringify(website));
+
             api.create($("#isso-thread").getAttribute("data-isso-id"), {
-                author: $("[name=author]", el).value || null,
-                email: $("[name=email]", el).value || null,
-                text: $("textarea", el).value,
+                author: author, email: email, website: website,
+                text: utils.text($(".textarea", el).innerHTML),
                 parent: parent || null
             }).then(function(comment) {
-                $("[name=author]", el).value = "";
-                $("[name=email]", el).value = "";
-                $("textarea", el).value = "";
-                $("textarea", el).rows = 2;
-                $("textarea", el).blur();
+                $(".textarea", el).innerHTML = "";
+                $(".textarea", el).blur();
                 insert(comment, true);
 
                 if (parent !== null) {
                     el.onsuccess();
-                    el.remove();
                 }
             });
         });
 
-        // copy'n'paste sluggy automagically dynamic textarea resize
-        lib.fancy.autoresize($("textarea", el), 48);
+        lib.editorify($(".textarea", el));
 
         return el;
     };
 
-    // lookup table for responses (to link to the parent)
-    var map  = {id: {}, name: {}};
+    var insert_loader = function(comment, lastcreated) {
+        var entrypoint;
+        if (comment.id === null) {
+            entrypoint = $("#isso-root");
+            comment.name = 'null';
+        } else {
+            entrypoint = $("#isso-" + comment.id + " > .text-wrapper > .isso-follow-up");
+            comment.name = comment.id;
+        }
+        var el = $.htmlify(jade.render("comment-loader", {"comment": comment}));
+
+        entrypoint.append(el);
+
+        $("a.load_hidden", el).on("click", function() {
+            el.remove();
+            api.fetch($("#isso-thread").getAttribute("data-isso-id"),
+                config["reveal-on-click"], config["max-comments-nested"],
+                comment.id,
+                lastcreated).then(
+                function(rv) {
+                    if (rv.total_replies === 0) {
+                        return;
+                    }
+
+                    var lastcreated = 0;
+                    rv.replies.forEach(function(commentObject) {
+                        insert(commentObject, false);
+                        if(commentObject.created > lastcreated) {
+                            lastcreated = commentObject.created;
+                        }
+                    });
+
+                    if(rv.hidden_replies > 0) {
+                        insert_loader(rv, lastcreated);
+                    }
+                },
+                function(err) {
+                    console.log(err);
+                });
+        });
+    };
 
     var insert = function(comment, scrollIntoView) {
-
-        map.name[comment.id] = comment.author;
-        if (comment.parent) {
-            comment["replyto"] = map.name[comment.parent];
-        }
-
-        var el = $.htmlify(Mark.up(templates["comment"], comment));
+        var el = $.htmlify(jade.render("comment", {"comment": comment}));
 
         // update datetime every 60 seconds
         var refresh = function() {
-            $(".permalink > date", el).textContent = utils.ago(
-                new Date(parseInt(comment.created, 10) * 1000));
+            $(".permalink > time", el).textContent = utils.ago(
+                globals.offset.localTime(), new Date(parseInt(comment.created, 10) * 1000));
             setTimeout(refresh, 60*1000);
         };
 
         // run once to activate
         refresh();
 
-        $("div.avatar > svg", el).replace(lib.identicons.generate(comment.hash, 4, 48));
+        if (config["avatar"]) {
+            $("div.avatar > svg", el).replace(lib.identicons.generate(comment.hash, 4, 48));
+        }
 
         var entrypoint;
         if (comment.parent === null) {
             entrypoint = $("#isso-root");
         } else {
-            var key = comment.parent;
-            while (key in map.id) {
-                key = map.id[key];
-            }
-            map.id[comment.id] = comment.parent;
-            entrypoint = $("#isso-" + key + " > .text-wrapper > .isso-follow-up");
+            entrypoint = $("#isso-" + comment.parent + " > .text-wrapper > .isso-follow-up");
         }
 
         entrypoint.append(el);
@@ -134,89 +141,104 @@ define(["app/text/html", "app/dom", "app/utils", "app/config", "app/api", "app/m
         var form = null;  // XXX: probably a good place for a closure
         $("a.reply", footer).toggle("click",
             function(toggler) {
-                form = footer.insertAfter(new Postbox(comment.id));
+                form = footer.insertAfter(new Postbox(comment.parent === null ? comment.id : comment.parent));
                 form.onsuccess = function() { toggler.next(); };
-                $("textarea", form).focus();
-                $("a.reply", footer).textContent = msgs["comment-close"];
+                $(".textarea", form).focus();
+                $("a.reply", footer).textContent = i18n.translate("comment-close");
             },
             function() {
                 form.remove();
-                $("a.reply", footer).textContent = msgs["comment-reply"];
+                $("a.reply", footer).textContent = i18n.translate("comment-reply");
             }
         );
 
-        if (comment.parent !== null) {
-            $("a.parent", header).on("mouseover", function() {
-                $("#isso-" + comment.parent).classList.add("parent-highlight");
+        if (config.vote) {
+            // update vote counter, but hide if votes sum to 0
+            var votes = function (value) {
+                var span = $("span.votes", footer);
+                if (span === null) {
+                    if (value !== 0) {
+                        footer.prepend($.new("span.votes", value));
+                    }
+                } else {
+                    if (value === 0) {
+                        span.remove();
+                    } else {
+                        span.textContent = value;
+                    }
+                }
+            };
+
+            $("a.upvote", footer).on("click", function () {
+                api.like(comment.id).then(function (rv) {
+                    votes(rv.likes - rv.dislikes);
+                });
             });
-            $("a.parent", header).on("mouseout", function() {
-                $("#isso-" + comment.parent).classList.remove("parent-highlight");
+
+            $("a.downvote", footer).on("click", function () {
+                api.dislike(comment.id).then(function (rv) {
+                    votes(rv.likes - rv.dislikes);
+                });
             });
         }
-
-        // update vote counter, but hide if votes sum to 0
-        var votes = function(value) {
-            var span = $("span.votes", footer);
-            if (span === null && value === 0) {
-                footer.prepend($.new("span.votes", value));
-            } else {
-                if (value === 0) {
-                    span.remove();
-                } else {
-                    span.textContent = value;
-                }
-            }
-        };
-
-        $("a.upvote", footer).on("click", function() {
-            api.like(comment.id).then(function(rv) {
-                votes(rv.likes - rv.dislikes);
-            });
-        });
-
-        $("a.downvote", footer).on("click", function() {
-            api.dislike(comment.id).then(function(rv) {
-                votes(rv.likes - rv.dislikes);
-            });
-        });
 
         $("a.edit", footer).toggle("click",
             function(toggler) {
                 var edit = $("a.edit", footer);
+                var avatar = config["avatar"] ? $(".avatar", el, false)[0] : null;
 
-                edit.textContent = msgs["comment-save"];
-                edit.insertAfter($.new("a.cancel", msgs["comment-cancel"])).on("click", function() {
-                    text.textContent = "";
-                    text.className = "text";
-                    text.append(comment.text);
+                edit.textContent = i18n.translate("comment-save");
+                edit.insertAfter($.new("a.cancel", i18n.translate("comment-cancel"))).on("click", function() {
+                    toggler.canceled = true;
                     toggler.next();
                 });
 
+                toggler.canceled = false;
                 api.view(comment.id, 1).then(function(rv) {
-                    var textarea = $.new("textarea", rv.text);
-                    lib.fancy.autoresize(textarea, 48);
-                    text.className = "textarea-wrapper";
+                    var textarea = lib.editorify($.new("div.textarea"));
+
+                    textarea.innerHTML = utils.detext(rv.text);
+                    textarea.focus();
+
+                    text.classList.remove("text");
+                    text.classList.add("textarea-wrapper");
+
                     text.textContent = "";
                     text.append(textarea);
-                    textarea.focus();
                 });
+
+                if (avatar !== null) {
+                    avatar.hide();
+                }
             },
             function(toggler) {
-                var textarea = $("textarea", text);
-                if (textarea && textarea.value.length < 3) {
-                    textarea.focus();
-                    toggler.wait();
-                    return;
-                } else if (textarea) {
-                    api.modify(comment.id, {"text": textarea.value}).then(function(rv) {
-                        text.innerHTML = rv.text;
-                        text.className = "text";
-                        comment.text = rv.text;
-                    });
+                var textarea = $(".textarea", text);
+                var avatar = config["avatar"] ? $(".avatar", el, false)[0] : null;
+
+                if (! toggler.canceled && textarea !== null) {
+                    if (utils.text(textarea.innerHTML).length < 3) {
+                        textarea.focus();
+                        toggler.wait();
+                        return;
+                    } else {
+                        api.modify(comment.id, {"text": utils.text(textarea.innerHTML)}).then(function(rv) {
+                            text.innerHTML = rv.text;
+                            comment.text = rv.text;
+                        });
+                    }
+                } else {
+                    text.innerHTML = comment.text;
+                }
+
+                text.classList.remove("textarea-wrapper");
+                text.classList.add("text");
+
+                if (avatar !== null) {
+                    avatar.show();
                 }
 
                 $("a.cancel", footer).remove();
-                $("a.edit", footer).textContent = msgs["comment-edit"];
+                $("a.edit", footer).textContent = i18n.translate("comment-edit");
             }
         );
 
@@ -225,9 +247,9 @@ define(["app/text/html", "app/dom", "app/utils", "app/config", "app/api", "app/m
                 var del = $("a.delete", footer);
                 var state = ! toggler.state;
 
-                del.textContent = msgs["comment-confirm"];
+                del.textContent = i18n.translate("comment-confirm");
                 del.on("mouseout", function() {
-                    del.textContent = msgs["comment-delete"];
+                    del.textContent = i18n.translate("comment-delete");
                     toggler.state = state;
                     del.onmouseout = null;
                 });
@@ -238,12 +260,12 @@ define(["app/text/html", "app/dom", "app/utils", "app/config", "app/api", "app/m
                     if (rv) {
                         el.remove();
                     } else {
-                        $("span.note", header).textContent = msgs["comment-deleted"];
+                        $("span.note", header).textContent = i18n.translate("comment-deleted");
                         text.innerHTML = "<p>&nbsp;</p>";
-                        $("a.edit", footer).remove()
-                        $("a.delete", footer).remove()
+                        $("a.edit", footer).remove();
+                        $("a.delete", footer).remove();
                     }
-                    del.textContent = msgs["comment-delete"];
+                    del.textContent = i18n.translate("comment-delete");
                 });
             }
         );
@@ -274,10 +296,27 @@ define(["app/text/html", "app/dom", "app/utils", "app/config", "app/api", "app/m
         if (! config["reply-to-self"] && utils.cookie("isso-" + comment.id)) {
             show($("a.reply", footer).detach());
         }
+
+        if(comment.hasOwnProperty('replies')) {
+            var lastcreated = 0;
+            comment.replies.forEach(function(replyObject) {
+                insert(replyObject, false);
+                if(replyObject.created > lastcreated) {
+                    lastcreated = replyObject.created;
+                }
+
+            });
+            if(comment.hidden_replies > 0) {
+                insert_loader(comment, lastcreated);
+            }
+
+        }
+
     };
 
     return {
         insert: insert,
+        insert_loader: insert_loader,
         Postbox: Postbox
     };
 });

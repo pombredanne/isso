@@ -23,7 +23,6 @@ Isso:
         "mode": 1,
         "hash": "4505c1eeda98",
         "author": null,
-        "email": null,
         "website": null
         "created": 1387321261.572392,
         "modified": null,
@@ -174,4 +173,15 @@ Up- and downvote comments
 Get comment count
 -----------------
 
-...
+Counts all publicly visible comments for thread `uri`:
+
+.. code-block:: text
+
+    GET /count?uri=%2Fhello-world%2F
+    2
+    
+uri :
+    URI to count comments for, required.
+
+returns an integer
+    

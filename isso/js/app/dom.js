@@ -32,38 +32,38 @@ define(function() {
         by default, set :param prevents: to `false` to change that behavior.
          */
         this.addEventListener(type, function(event) {
-            listener();
+            listener(event);
             if (prevent === undefined || prevent) {
                 event.preventDefault();
             }
         });
     };
 
-    window.Element.prototype.toggle = function(type, on, off) {
+    window.Element.prototype.toggle = function(type, a, b) {
         /*
         Toggle between two internal states on event :param type: e.g. to
-        cycle form visibility. Callback :param on: is called on first event,
-        :param off: next time.
+        cycle form visibility. Callback :param a: is called on first event,
+        :param b: next time.
 
         You can skip to the next state without executing the callback with
         `toggler.next()`. You can prevent a cycle when you call `toggler.wait()`
         during an event.
          */
 
-        function Toggle(el, on, off) {
+        function Toggle(el, a, b) {
             this.state = false;
             this.el = el;
-            this.on = on;
-            this.off = off;
+            this.a = a;
+            this.b = b;
         }
 
         Toggle.prototype.next = function next() {
             if (! this.state) {
                 this.state = true;
-                this.on(this);
+                this.a(this);
             } else {
                 this.state = false;
-                this.off(this);
+                this.b(this);
             }
         };
 
@@ -71,7 +71,7 @@ define(function() {
             this.state = ! this.state;
         };
 
-        var toggler = new Toggle(this, on, off);
+        var toggler = new Toggle(this, a, b);
         this.on(type, function() {
             toggler.next();
         });
@@ -91,13 +91,25 @@ define(function() {
         this.parentNode.removeChild(this);
     };
 
-    var DOM = function(query, root) {
+    window.Element.prototype.show = function() {
+        this.style.display = "block";
+    };
+
+    window.Element.prototype.hide = function() {
+        this.style.display = "none";
+    };
+
+    var DOM = function(query, root, single) {
         /*
         jQuery-like CSS selector which returns on :param query: either a
-        single node, a node list or null.
+        single node (unless single=false), a node list or null.
 
         :param root: only queries within the given element.
          */
+
+        if (typeof single === "undefined") {
+            single = true;
+        }
 
         if (! root) {
             root = window.document;
@@ -109,7 +121,7 @@ define(function() {
             return null;
         }
 
-        if (elements.length === 1) {
+        if (elements.length === 1 && single) {
             return elements[0];
         }
 

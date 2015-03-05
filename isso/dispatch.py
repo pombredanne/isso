@@ -1,18 +1,17 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import unicode_literals
+
+import sys
 import os
 import logging
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from glob import glob
 
 from werkzeug.wsgi import DispatcherMiddleware
 from werkzeug.wrappers import Response
 
-from isso import make_app, wsgi
-from isso.core import Config
+from isso import dist, make_app, wsgi, config
 
 logger = logging.getLogger("isso")
 
@@ -23,11 +22,13 @@ class Dispatcher(DispatcherMiddleware):
     a relative URI, e.g. /foo.example and /other.bar.
     """
 
+    default = os.path.join(dist.location, "share", "isso.conf")
+
     def __init__(self, *confs):
 
         self.isso = {}
 
-        for i, conf in enumerate(map(Config.load, confs)):
+        for i, conf in enumerate(map(config.load(Dispatcher.default, conf))):
 
             if not conf.get("general", "name"):
                 logger.warn("unable to dispatch %r, no 'name' set", confs[i])
@@ -49,13 +50,18 @@ class Dispatcher(DispatcherMiddleware):
         return resp(environ, start_response)
 
 
-if "ISSO_SETTINGS" not in os.environ:
-    logger.fatal('no such environment variable: ISSO_SETTINGS')
-else:
-    confs = os.environ["ISSO_SETTINGS"].split(";")
-    for path in confs:
-        if not os.path.isfile(path):
-            logger.fatal("%s: no such file", path)
-            break
-    else:
+settings = os.environ.get("ISSO_SETTINGS")
+if settings:
+    if os.path.isdir(settings):
+        conf_glob = os.path.join(settings, '*.cfg')
+        confs = glob(conf_glob)
         application = wsgi.SubURI(Dispatcher(*confs))
+    else:
+        confs = settings.split(";")
+        for path in confs:
+            if not os.path.isfile(path):
+                logger.fatal("%s: no such file", path)
+                sys.exit(1)
+    application = wsgi.SubURI(Dispatcher(*confs))
+else:
+    logger.fatal('environment variable ISSO_SETTINGS must be set')

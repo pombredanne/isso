@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+import sys
 import io
 import time
 import json
@@ -47,7 +48,7 @@ class SMTP(object):
         if uwsgi:
             def spooler(args):
                 try:
-                    self._sendmail(args["subject"].decode("utf-8"),
+                    self._sendmail(args[b"subject"].decode("utf-8"),
                                    args["body"].decode("utf-8"))
                 except smtplib.SMTPConnectError:
                     return uwsgi.SPOOL_RETRY
@@ -58,14 +59,25 @@ class SMTP(object):
 
     def __enter__(self):
         klass = (smtplib.SMTP_SSL if self.conf.get('security') == 'ssl' else smtplib.SMTP)
-        self.client = klass(host=self.conf.get('host'), port=self.conf.getint('port'))
+        self.client = klass(host=self.conf.get('host'),
+                            port=self.conf.getint('port'),
+                            timeout=self.conf.getint('timeout'))
 
         if self.conf.get('security') == 'starttls':
-            self.client.starttls();
+            if sys.version_info >= (3, 4):
+                import ssl
+                self.client.starttls(context=ssl.create_default_context())
+            else:
+                self.client.starttls()
 
-        if self.conf.get('username') and self.conf.get('password'):
-            self.client.login(self.conf.get('username'),
-                              self.conf.get('password'))
+        username = self.conf.get('username')
+        password = self.conf.get('password')
+        if username is not None and password is not None:
+            if PY2K:
+                username = username.encode('ascii')
+                password = password.encode('ascii')
+
+            self.client.login(username, password)
 
         return self.client
 
@@ -123,7 +135,7 @@ class SMTP(object):
         to_addr = self.conf.get("to")
 
         msg = MIMEText(body, 'plain', 'utf-8')
-        msg['From'] = "Ich schrei sonst! <%s>" % from_addr
+        msg['From'] = from_addr
         msg['To'] = to_addr
         msg['Date'] = formatdate(localtime=True)
         msg['Subject'] = Header(subject, 'utf-8')

@@ -1,11 +1,16 @@
 /*
- * Copyright 2013, Martin Zimmermann <info@posativ.org>. All rights reserved.
+ * Copyright 2014, Martin Zimmermann <info@posativ.org>. All rights reserved.
  * Distributed under the MIT license
  */
 
-require(["ready", "app/config", "app/api", "app/isso", "app/count", "app/dom", "app/markup", "app/text/css"], function(domready, config, api, isso, count, $, Mark, css) {
+require(["app/lib/ready", "app/config", "app/i18n", "app/api", "app/isso", "app/count", "app/dom", "app/text/css", "app/text/svg", "app/jade"], function(domready, config, i18n, api, isso, count, $, css, svg, jade) {
 
     "use strict";
+
+    jade.set("conf", config);
+    jade.set("i18n", i18n.translate);
+    jade.set("pluralize", i18n.pluralize);
+    jade.set("svg", svg);
 
     domready(function() {
 
@@ -26,16 +31,28 @@ require(["ready", "app/config", "app/api", "app/isso", "app/count", "app/dom", "
         $("#isso-thread").append(new isso.Postbox(null));
         $("#isso-thread").append('<div id="isso-root"></div>');
 
-        api.fetch($("#isso-thread").getAttribute("data-isso-id")).then(
+        api.fetch($("#isso-thread").getAttribute("data-isso-id"),
+            config["max-comments-top"],
+            config["max-comments-nested"]).then(
             function(rv) {
-                if (! rv.length) {
-                    $("#isso-thread > h4").textContent = Mark.up("{{ i18n-no-comments }}");
+                if (rv.total_replies === 0) {
+                    $("#isso-thread > h4").textContent = i18n.translate("no-comments");
                     return;
                 }
 
-                $("#isso-thread > h4").textContent = Mark.up("{{ i18n-num-comments | pluralize : `n` }}", {n: rv.length});
-                for (var i=0; i < rv.length; i++) {
-                    isso.insert(rv[i], false);
+                var lastcreated = 0;
+                var count = rv.total_replies;
+                rv.replies.forEach(function(comment) {
+                    isso.insert(comment, false);
+                    if(comment.created > lastcreated) {
+                        lastcreated = comment.created;
+                    }
+                    count = count + comment.total_replies;
+                });
+                $("#isso-thread > h4").textContent = i18n.pluralize("num-comments", count);
+
+                if(rv.hidden_replies > 0) {
+                    isso.insert_loader(rv, lastcreated);
                 }
 
                 if (window.location.hash.length > 0) {

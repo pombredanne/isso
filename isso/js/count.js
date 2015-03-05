@@ -1,5 +1,5 @@
-require(["ready", "app/count"], function(domready, count) {
+require(["app/lib/ready", "app/count"], function(domready, count) {
     domready(function() {
         count();
-    })
+    });
 });

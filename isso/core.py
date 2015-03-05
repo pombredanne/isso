@@ -2,15 +2,10 @@
 
 from __future__ import print_function
 
-import io
-import os
 import time
 import logging
-import binascii
 import threading
 import multiprocessing
-
-from configparser import ConfigParser
 
 try:
     import uwsgi
@@ -24,139 +19,9 @@ if PY2K:
 else:
     import _thread as thread
 
-from isso.utils import parse
-from isso.compat import text_type as str
-
 from werkzeug.contrib.cache import NullCache, SimpleCache
 
 logger = logging.getLogger("isso")
-
-
-class Section:
-
-    def __init__(self, conf, section):
-        self.conf = conf
-        self.section = section
-
-    def get(self, key):
-        return self.conf.get(self.section, key)
-
-    def getint(self, key):
-        return self.conf.getint(self.section, key)
-
-    def getiter(self, key):
-        return self.conf.getiter(self.section, key)
-
-    def getboolean(self, key):
-        return self.conf.getboolean(self.section, key)
-
-
-class IssoParser(ConfigParser):
-    """
-    Extended :class:`ConfigParser` to parse human-readable timedeltas
-    into seconds and handles multiple values per key.
-
-    >>> import io
-    >>> parser = IssoParser(allow_no_value=True)
-    >>> parser.read_file(io.StringIO(u'''
-    ... [foo]
-    ... bar = 1h
-    ... baz = 12
-    ... bla =
-    ...     spam
-    ...     ham
-    ... asd = fgh
-    ... '''))
-    >>> parser.getint("foo", "bar")
-    3600
-    >>> parser.getint("foo", "baz")
-    12
-    >>> list(parser.getiter("foo", "bla"))  # doctest: +IGNORE_UNICODE
-    ['spam', 'ham']
-    >>> list(parser.getiter("foo", "asd"))  # doctest: +IGNORE_UNICODE
-    ['fgh']
-    """
-
-    @classmethod
-    def _total_seconds(cls, td):
-        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
-
-    def getint(self, section, key):
-        try:
-            delta = parse.timedelta(self.get(section, key))
-        except ValueError:
-            return super(IssoParser, self).getint(section, key)
-        else:
-            try:
-                return int(delta.total_seconds())
-            except AttributeError:
-                return int(IssoParser._total_seconds(delta))
-
-    def getiter(self, section, key):
-        for item in map(str.strip, self.get(section, key).split('\n')):
-            if item:
-                yield item
-
-    def section(self, section):
-        return Section(self, section)
-
-
-class Config:
-
-    default = [
-        "[general]",
-        "name = ",
-        "dbpath = /tmp/isso.db", "session-key = %s" % binascii.b2a_hex(os.urandom(16)),
-        "host = http://localhost:8080/", "max-age = 15m",
-        "notify = ",
-        "[moderation]",
-        "enabled = false",
-        "purge-after = 30d",
-        "[server]",
-        "listen = http://localhost:8080/",
-        "reload = off", "profile = off",
-        "[smtp]",
-        "username = ", "password = ",
-        "host = localhost", "port = 465", "security = ssl",
-        "to = ", "from = ",
-        "[guard]",
-        "enabled = true",
-        "ratelimit = 2",
-        "direct-reply = 3",
-        "reply-to-self = false"
-    ]
-
-    @classmethod
-    def load(cls, configfile):
-
-        # return set of (section, option)
-        setify = lambda cp: set((section, option) for section in cp.sections()
-                                for option in cp.options(section))
-
-        rv = IssoParser(allow_no_value=True)
-        rv.read_file(io.StringIO(u'\n'.join(Config.default)))
-
-        a = setify(rv)
-
-        if configfile:
-            rv.read(configfile)
-
-        diff = setify(rv).difference(a)
-
-        if diff:
-            for item in diff:
-                logger.warn("no such option: [%s] %s", *item)
-                if item in (("server", "host"), ("server", "port")):
-                    logger.warn("use `listen = http://$host:$port` instead")
-                if item == ("smtp", "ssl"):
-                    logger.warn("use `security = none | starttls | ssl` instead")
-
-        if rv.get("smtp", "username") and not rv.get("general", "notify"):
-            logger.warn(("SMTP is no longer enabled by default, add "
-                         "`notify = smtp` to the general section to "
-                         "enable SMTP nofications."))
-
-        return rv
 
 
 class Cache:

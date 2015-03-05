@@ -8,10 +8,13 @@
 *.pyc
 .Python
 .sass-cache
+.vagrant
 
 /bin
 /include
 /lib
+/lib64
+/man
 /share
 /isso.egg-info/
 /isso/js/components

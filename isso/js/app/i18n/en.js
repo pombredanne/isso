@@ -2,6 +2,7 @@ define({
     "postbox-text": "Type Comment Here (at least 3 chars)",
     "postbox-author": "Name (optional)",
     "postbox-email": "E-mail (optional)",
+    "postbox-website": "Website (optional)",
     "postbox-submit": "Submit",
 
     "num-comments": "One Comment\n{{ n }} Comments",
@@ -17,6 +18,7 @@ define({
     "comment-deleted": "Comment deleted.",
     "comment-queued": "Comment in queue for moderation.",
     "comment-anonymous": "Anonymous",
+    "comment-hidden": "{{ n }} Hidden",
 
     "date-now": "right now",
     "date-minute": "a minute ago\n{{ n }} minutes ago",
