@@ -1,10 +1,10 @@
 Installation
 ============
 
-Isso is a web application written in Python. If pip and virtualenv mean
-anything to you, continue with :ref:`install-from-pypi`. If you are running
-Debian/Ubuntu or Gentoo, you can use :ref:`prebuilt-package`. If not, read the
-next section carefully.
+Isso is a web application written in Python. If pip and virtualenv mean anything
+to you, continue with :ref:`install-from-pypi`. If you are running
+Debian/Ubuntu, Gentoo, Archlinux or Fedora, you can use
+:ref:`prebuilt-package`. If not, read the next section carefully.
 
 .. contents::
     :local:
@@ -146,6 +146,9 @@ Prebuilt Packages
 * Arch Linux: https://aur.archlinux.org/packages/isso/
   – install with `yaourt isso`.
 
+* Fedora: https://copr.fedoraproject.org/coprs/jujens/isso/ — copr
+  repository. Built from Pypi, includes a systemctl unit script.
+
 * Docker Image: https://registry.hub.docker.com/u/bl4n/isso/
 
 Install from Source
@@ -213,6 +216,7 @@ don't use FastCGi or uWSGI:
 -  systemd (Isso + Gunicorn): https://github.com/jgraichen/debian-isso/blob/master/debian/isso.service
 -  SysVinit (Isso + Gunicorn): https://github.com/jgraichen/debian-isso/blob/master/debian/isso.init
 -  OpenBSD: https://gist.github.com/noqqe/7397719
+-  FreeBSD: https://gist.github.com/ckoepp/52f6f0262de04cee1b88ef4a441e276d
 -  Supervisor: https://github.com/posativ/isso/issues/47
 
 If you're writing your own init script, you can utilize ``start-stop-daemon``
@@ -231,7 +235,7 @@ find a very basic SysVinit script which you can use for inspiration:
     ### END INIT INFO
 
     EXEC=/opt/isso/bin/isso
-    EXEC_OPTS="-c /etc/isso.cfg"
+    EXEC_OPTS="-c /etc/isso.cfg run"
 
     RUNAS=isso
     PIDFILE=/var/run/isso.pid
@@ -254,7 +258,7 @@ find a very basic SysVinit script which you can use for inspiration:
       stop)
         stop
         ;;
-      retart)
+      restart)
         stop
         start
         ;;

@@ -47,5 +47,16 @@ In chronological order:
 * Daniel Gräber <https://github.com/albohlabs>
   * Added ansible for provisioning
 
+* Nick Hu <https://github.com/NickHu>
+  * Added configuration to require email addresses (no validation)
+  * Fix Vagrantfile
+
+* Benoît Latinier <benoit@latinier.fr>
+  * Fix thread discovery
+  * Added mandatory author
+
+* Ivan Pantic <ivanpantic82@gmail.com>
+  * Added vote levels
+
 * [Your name or handle] <[email or website]>
   * [Brief summary of your changes]

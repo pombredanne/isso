@@ -1,7 +1,72 @@
 Changelog for Isso
 ==================
 
-0.10 (unreleased)
+0.10.7 (unreleased)
+-------------------
+
+- Nothing changed yet.
+
+
+0.10.6 (2016-09-22)
+-------------------
+
+- fix missing configuration field
+
+
+0.10.5 (2016-09-20)
+-------------------
+
+- add support for different vote levels, #260
+
+  List of vote levels used to customize comment appearance based on score.
+  Provide a comma-separated values (eg. `"0,5,10,25,100"`) or a JSON array (eg.
+  `"[-5,5,15]"`).
+
+  For example, the value `"-5,5"` will cause each `isso-comment` to be given
+  one of these 3 classes:
+
+  - `isso-vote-level-0` for scores lower than `-5`
+  - `isso-vote-level-1` for scores between `-5` and `4`
+  - `isso-vote-level-2` for scores of `5` and greater
+
+  These classes can then be used to customize the appearance of comments (eg.
+  put a star on popular comments).
+
+- add new post preview API endpoint, #254
+
+- add an option for mandatory author, #257
+
+- clients can now use `data-title` to get the HTML title for a new page, #252
+
+- add finish translation and other minor bugfixes
+
+
+0.10.4 (2016-04-12)
+-------------------
+
+- fix wrapper attribute when using data-isso-require-mail="true", #238
+- fix reponse for OPTIONS response on Python 3, #242
+
+
+0.10.3 (2016-02-24)
+-------------------
+
+- follow redirects, #193
+
+
+0.10.2 (2016-02-21)
+-------------------
+
+- fix getAttribute return value
+
+
+0.10.1 (2016-02-06)
+-------------------
+
+- fix empty author, email and website values when writing a comment
+
+
+0.10 (2016-02-06)
 -----------------
 
 - add new configuration section for hash handling.
@@ -13,8 +78,8 @@ Changelog for Isso
   You can customize the salt, choose different hash functions and tweak the
   parameters for PBKDF2.
 
-- Python 3.4+ and Python 2.7.9+ validate TLS connections against the system's
-  CA. Previously no validation was in place, see PEP-446__ for details.
+- Python 3.4+ validate TLS connections against the system's CA. Previously no
+  validation was in place, see PEP-446__ for details.
 
 - add `fenced_code` and `no_intra_emphasis` to default configuration.
 
@@ -24,10 +89,29 @@ Changelog for Isso
   Intra emphasis would compile `foo_bar_baz` to foo<em>bar</em>baz. This
   behavior is very confusing for users not knowing the Markdown spec in detail.
 
-- new Bulgarian translation by sahwar, new Swedish translation by <Gustav
-  Näslund, #143
+- new configuration to require an email when submitting comments, #199. Set
+
+    [guard]
+    require-email = true
+
+  and use `data-isso-require-email="true"` to enable this feature. Disabled by
+  default.
+
+- new Bulgarian translation by sahwar, new Swedish translation by Gustav
+  Näslund – #143, new Vietnamese translation by Đinh Xuân Sâm, new Croatian
+  translation by streger, new Czech translation by Jan Chren
+
+- fix SMTP setup without credentials, #174
+
+- version pin Misaka to 1.x, html5lib to 0.9999999
 
 .. __: https://www.python.org/dev/peps/pep-0466/
+
+
+0.9.10 (2015-04-11)
+-------------------
+
+- fix regression in SMTP authentication, #174
 
 
 0.9.9 (2015-03-04)

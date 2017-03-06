@@ -194,7 +194,7 @@ def make_app(conf=None, threading=True, multiprocessing=False, uwsgi=False):
         allowed=("Origin", "Referer", "Content-Type"),
         exposed=("X-Set-Cookie", "Date")))
 
-    wrapper.extend([wsgi.SubURI, ProxyFix, wsgi.LegacyWerkzeugMiddleware])
+    wrapper.extend([wsgi.SubURI, ProxyFix])
 
     if werkzeug.version.startswith("0.8"):
         wrapper.append(wsgi.LegacyWerkzeugMiddleware)
@@ -223,7 +223,7 @@ def main():
     serve = subparser.add_parser("run", help="run server")
 
     args = parser.parse_args()
-    conf = config.load(join(dist.location, "share", "isso.conf"), args.conf)
+    conf = config.load(join(dist.location, dist.project_name, "defaults.ini"), args.conf)
 
     if args.command == "import":
         conf.set("guard", "enabled", "off")
